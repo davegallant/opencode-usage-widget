@@ -316,11 +316,18 @@ PlasmoidItem {
             // two-digit percentage above minimumPixelSize. Absent beats
             // illegible, so thin panels get the original single ring.
             readonly property bool dual: d >= 32
-            // Monthly only appears once a third ring still leaves a usable
-            // arc: at d = 40 the innermost radius is 8.3px with a 3.4px
-            // stroke. Below that the panel keeps two rings and the centred
-            // percentage instead, which carries more than three smudged arcs.
-            readonly property bool triple: d >= 40
+            // Monthly appears once its ring still encloses a real hole rather
+            // than collapsing to a filled dot. Stated as the legibility rule
+            // itself, not a diameter: `d` is NOT panel thickness -- Plasma
+            // hands a panel applet notably less (measured: a 46px panel gives
+            // 38px, so d = 34 after smallSpacing). A hardcoded diameter here
+            // was silently wrong for exactly that reason.
+            //
+            // With the current factors this coincides with `dual`: the
+            // expression reduces to 0.165d, which clears 3 for any d >= 19. It
+            // is kept separate so that changing strokeW or gap can't quietly
+            // produce a third ring with no hole in it.
+            readonly property bool triple: dual && (thirdR - strokeW / 2) >= 3
             readonly property real strokeW: dual ? Math.max(2, d * 0.085)
                                                  : Math.max(2, d * 0.12)
             readonly property real gap: Math.max(1, d * 0.04)

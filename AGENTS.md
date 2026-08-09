@@ -188,14 +188,20 @@ hand-editing still works and there is one code path.
 ## UI conventions
 
 - Panel: concentric rings, outside-in **rolling / weekly / monthly**, ordered
-  by how soon each window bites. How many are drawn depends on `d` (the ring
-  diameter, roughly panel thickness minus `smallSpacing`):
+  by how soon each window bites:
 
   | `d` | rings | centre |
   |---|---|---|
-  | `>= 40` | rolling, weekly, monthly | empty — reading moves to the tooltip |
-  | `32..39` | rolling, weekly | rolling percentage |
+  | `>= 32` | rolling, weekly, monthly | empty — reading moves to the tooltip |
   | `< 32` | rolling | rolling percentage |
+
+- **`d` is not panel thickness.** Plasma hands a panel applet notably less than
+  the panel's height, and `smallSpacing` comes off that. Measured on this
+  machine: a **46px panel gives the applet 38px, so `d = 34`**
+  (`smallSpacing = 4`, `gridUnit = 18`). A threshold written as though `d`
+  tracked panel height was silently wrong — `d >= 40` never fired on a 46px
+  panel and would have needed roughly 54px+. Don't hardcode diameters here;
+  state the legibility rule and let it calibrate itself.
 
 - **The centre label still appears in triple mode when there is no data.** With
   nothing to draw, every ring is an empty track, so the centre is free — and
@@ -217,12 +223,15 @@ hand-editing still works and there is one code path.
   Noto Sans or Liberation Sans. What actually makes this safe either way is
   `width: ring.clearD`, which lets `fontSizeMode` shrink the label rather than
   overflow it.
-- The third ring appears only at `d >= 40`, where the innermost radius is
-  8.3px against a 3.4px stroke. Below that the panel keeps two rings and the
-  percentage, which carries more than three smudged arcs. Geometry is swept in
-  0.1px steps from d=8 to d=200 against four invariants: `thirdR > 0`, the
-  monthly stroke not swallowing the centre, `clearD > 0`, and no stroke-edge
-  overlap between adjacent rings.
+- The third ring is gated on `dual && (thirdR - strokeW / 2) >= 3` — the
+  monthly ring must still enclose a real hole rather than collapse to a filled
+  dot. With the current factors that expression reduces to `0.165d`, clearing 3
+  for any `d >= 19`, so **wherever two rings fit, three fit** and the predicate
+  coincides with `dual`. It is kept as its own property so that retuning
+  `strokeW` or `gap` can't quietly produce a third ring with no hole in it.
+  Geometry is swept in 0.1px steps from d=8 to d=200 against four invariants:
+  `thirdR > 0`, the monthly stroke not swallowing the centre, `clearD > 0`, and
+  no stroke-edge overlap between adjacent rings.
 - **This reverses the original spec**, which ruled out three concentric rings
   as illegible at panel size. That judgement assumed the centred percentage
   stayed; dropping it frees exactly the space that made three rings cramped.
