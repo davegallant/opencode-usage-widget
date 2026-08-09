@@ -165,10 +165,21 @@ hand-editing still works and there is one code path.
 
 ## UI conventions
 
-- Panel: a circular ring for the rolling window, percentage centred inside.
-  Weekly and monthly are popup-only — three concentric rings don't stay legible
-  at panel size, and a "worst of three" ring would mean something different
-  moment to moment.
+- Panel: two concentric rings — rolling outside, weekly inside — with the
+  rolling percentage centred. The centre number is *always* rolling, which is
+  what disambiguates the rings: red in the stack while the number reads green
+  can only be weekly.
+- The second ring is dropped below `d >= 32` (`d` being the ring diameter,
+  roughly panel thickness minus `smallSpacing`). Below that, strokes hit the
+  2px floor and the centre no longer holds a two-digit percentage above
+  `minimumPixelSize` — the ring would be present but unreadable, which is worse
+  than absent. Dual mode also thins the stroke (`0.085d` vs `0.12d`) and the
+  label (`0.26d` vs `0.32d`); the label factor is load-bearing, since `0.32d`
+  would make `fontSizeMode` the normal path rather than the fallback.
+- Monthly stays popup-only, and there is no "worst of N" ring. Three concentric
+  rings don't stay legible at panel size, and a worst-of-N ring would mean
+  something different moment to moment. Two rings, each bound to one fixed
+  window, has neither problem.
 - Colouring is by **raw percentage**. The Claude widget's pace-based tinting
   needs a window length, and opencode's payload never states one; assuming
   5h/7d/30d would bake in a guess that's wrong for the whole early part of each
