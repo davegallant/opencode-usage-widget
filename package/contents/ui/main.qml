@@ -290,14 +290,33 @@ PlasmoidItem {
         property real fraction: root.rolling ? Math.max(0, Math.min(100, util)) / 100 : 0
         readonly property color ringColor: root.rolling ? root.utilColor(root.rolling.util)
                                                         : Kirigami.Theme.disabledTextColor
+        // Weekly mirrors rolling exactly: same clamp, same easing, same full
+        // strength colour. A blown weekly quota is the worse of the two
+        // problems and must not be drawn more quietly than a rolling one.
+        property real weeklyFraction: root.weekly ? Math.max(0, Math.min(100, root.weekly.util)) / 100 : 0
+        readonly property color weeklyColor: root.weekly ? root.utilColor(root.weekly.util)
+                                                         : Kirigami.Theme.disabledTextColor
         Behavior on fraction { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+        Behavior on weeklyFraction { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
 
         Shape {
             id: ring
             anchors.centerIn: parent
             readonly property real d: Math.max(compact.side - Kirigami.Units.smallSpacing, 8)
-            readonly property real strokeW: Math.max(2, d * 0.12)
+            // Below this the inner ring would be present but unreadable —
+            // strokes hit the 2px floor and the centre stops holding a
+            // two-digit percentage above minimumPixelSize. Absent beats
+            // illegible, so thin panels get the original single ring.
+            readonly property bool dual: d >= 32
+            readonly property real strokeW: dual ? Math.max(2, d * 0.085)
+                                                 : Math.max(2, d * 0.12)
+            readonly property real gap: Math.max(1, d * 0.04)
             readonly property real outerR: (d - strokeW) / 2
+            // Clamped: at the d = 8 floor the subtraction goes negative.
+            readonly property real innerR: Math.max(0, outerR - strokeW - gap)
+            // Clear diameter inside the innermost ring. The centre label needs
+            // this as an explicit width — see Task 2 Step 4.
+            readonly property real clearD: 2 * ((dual ? innerR : outerR) - strokeW / 2)
             // ShapePath has no strokeOpacity; bake the alpha into the color.
             readonly property color trackColor: Qt.rgba(Kirigami.Theme.textColor.r,
                                                         Kirigami.Theme.textColor.g,
@@ -328,15 +347,47 @@ PlasmoidItem {
                     startAngle: -90; sweepAngle: 359.999 * compact.fraction
                 }
             }
+            ShapePath {   // weekly track
+                // ShapePath is not an Item and has no `visible`; a transparent
+                // stroke is how these two paths switch off below the threshold.
+                strokeColor: ring.dual ? ring.trackColor : "transparent"
+                strokeWidth: ring.strokeW
+                fillColor: "transparent"
+                capStyle: ShapePath.FlatCap
+                PathAngleArc {
+                    centerX: ring.d / 2; centerY: ring.d / 2
+                    radiusX: ring.innerR; radiusY: radiusX
+                    startAngle: 0; sweepAngle: 359.999
+                }
+            }
+            ShapePath {   // weekly fill, clockwise from the top
+                strokeColor: ring.dual ? compact.weeklyColor : "transparent"
+                strokeWidth: ring.strokeW
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                PathAngleArc {
+                    centerX: ring.d / 2; centerY: ring.d / 2
+                    radiusX: ring.innerR; radiusY: radiusX
+                    startAngle: -90; sweepAngle: 359.999 * compact.weeklyFraction
+                }
+            }
         }
 
         PlasmaComponents3.Label {
             anchors.centerIn: parent
+            // fontSizeMode is a no-op without a width to fit against: an
+            // unanchored Text's width is its own content width. Measured:
+            // "100%" bold at 11px is 30px wide and does NOT shrink without
+            // this line; with it, it scales down to fit. Without a width the
+            // percentage draws straight over the inner ring at 100%.
+            width: ring.clearD
             text: root.rolling ? (Math.round(root.rolling.util) + "%")
                                : (root.errorMsg !== "" ? "!" : "…")
             color: compact.ringColor
             font.bold: true
-            font.pixelSize: Math.round(ring.d * 0.32)
+            // 0.26 in dual mode is load-bearing, not cosmetic: at 0.32 the
+            // label needs ~30px against a ~24px clear centre.
+            font.pixelSize: Math.round(ring.d * (ring.dual ? 0.26 : 0.32))
             font.features: { "tnum": 1 }
             fontSizeMode: Text.HorizontalFit
             minimumPixelSize: 6
