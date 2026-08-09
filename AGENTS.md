@@ -187,8 +187,23 @@ hand-editing still works and there is one code path.
 
 ## UI conventions
 
-- Panel: two concentric rings — rolling outside, weekly inside — with the
-  rolling percentage centred. The centre number is *always* rolling, which is
+- Panel: concentric rings, outside-in **rolling / weekly / monthly**, ordered
+  by how soon each window bites. How many are drawn depends on `d` (the ring
+  diameter, roughly panel thickness minus `smallSpacing`):
+
+  | `d` | rings | centre |
+  |---|---|---|
+  | `>= 40` | rolling, weekly, monthly | empty — reading moves to the tooltip |
+  | `32..39` | rolling, weekly | rolling percentage |
+  | `< 32` | rolling | rolling percentage |
+
+- **The centre label still appears in triple mode when there is no data.** With
+  nothing to draw, every ring is an empty track, so the centre is free — and
+  the `!` / `…` is the only thing separating "not configured" from "everything
+  at zero". `visible: !ring.triple || !root.rolling`. Dropping it
+  unconditionally loses that signal exactly when it matters most.
+- In triple mode nothing on the panel says which arc is which; the tooltip
+  names all three. In dual mode the centre number is *always* rolling, which is
   what disambiguates the rings: red in the stack while the number reads green
   can only be weekly.
 - The second ring is dropped when `d < 32` (`d` being the ring diameter,
@@ -202,10 +217,17 @@ hand-editing still works and there is one code path.
   Noto Sans or Liberation Sans. What actually makes this safe either way is
   `width: ring.clearD`, which lets `fontSizeMode` shrink the label rather than
   overflow it.
-- Monthly stays popup-only, and there is no "worst of N" ring. Three concentric
-  rings don't stay legible at panel size, and a worst-of-N ring would mean
-  something different moment to moment. Two rings, each bound to one fixed
-  window, has neither problem.
+- The third ring appears only at `d >= 40`, where the innermost radius is
+  8.3px against a 3.4px stroke. Below that the panel keeps two rings and the
+  percentage, which carries more than three smudged arcs. Geometry is swept in
+  0.1px steps from d=8 to d=200 against four invariants: `thirdR > 0`, the
+  monthly stroke not swallowing the centre, `clearD > 0`, and no stroke-edge
+  overlap between adjacent rings.
+- **This reverses the original spec**, which ruled out three concentric rings
+  as illegible at panel size. That judgement assumed the centred percentage
+  stayed; dropping it frees exactly the space that made three rings cramped.
+- There is still no "worst of N" ring — it would mean something different
+  moment to moment. Every ring is bound to one fixed window.
 - Colouring is by **raw percentage**. The Claude widget's pace-based tinting
   needs a window length, and opencode's payload never states one; assuming
   5h/7d/30d would bake in a guess that's wrong for the whole early part of each

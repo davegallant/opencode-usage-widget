@@ -265,7 +265,9 @@ PlasmoidItem {
         }
     }
 
-    // ---------- compact (in-panel): a ring showing rolling % ----------
+    // ---------- compact (in-panel): concentric rings, outside-in ----------
+    // rolling / weekly / monthly, ordered by how soon each one bites. How many
+    // are drawn depends on the panel's thickness -- see `dual` and `triple`.
     compactRepresentation: MouseArea {
         id: compact
         // Only one axis follows the other, and only the axis Plasma doesn't
@@ -296,8 +298,14 @@ PlasmoidItem {
         property real weeklyFraction: root.weekly ? Math.max(0, Math.min(100, root.weekly.util)) / 100 : 0
         readonly property color weeklyColor: root.weekly ? root.utilColor(root.weekly.util)
                                                          : Kirigami.Theme.disabledTextColor
+        // Monthly, innermost. Same treatment again -- three windows drawn on
+        // equal terms, ordered outside-in by how soon they bite.
+        property real monthlyFraction: root.monthly ? Math.max(0, Math.min(100, root.monthly.util)) / 100 : 0
+        readonly property color monthlyColor: root.monthly ? root.utilColor(root.monthly.util)
+                                                           : Kirigami.Theme.disabledTextColor
         Behavior on fraction { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
         Behavior on weeklyFraction { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+        Behavior on monthlyFraction { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
 
         Shape {
             id: ring
@@ -308,15 +316,23 @@ PlasmoidItem {
             // two-digit percentage above minimumPixelSize. Absent beats
             // illegible, so thin panels get the original single ring.
             readonly property bool dual: d >= 32
+            // Monthly only appears once a third ring still leaves a usable
+            // arc: at d = 40 the innermost radius is 8.3px with a 3.4px
+            // stroke. Below that the panel keeps two rings and the centred
+            // percentage instead, which carries more than three smudged arcs.
+            readonly property bool triple: d >= 40
             readonly property real strokeW: dual ? Math.max(2, d * 0.085)
                                                  : Math.max(2, d * 0.12)
             readonly property real gap: Math.max(1, d * 0.04)
             readonly property real outerR: (d - strokeW) / 2
             // Clamped: at the d = 8 floor the subtraction goes negative.
             readonly property real innerR: Math.max(0, outerR - strokeW - gap)
-            // Clear diameter inside the innermost ring. The centre label needs
-            // this as an explicit width — see Task 2 Step 4.
-            readonly property real clearD: 2 * ((dual ? innerR : outerR) - strokeW / 2)
+            readonly property real thirdR: Math.max(0, innerR - strokeW - gap)
+            // Whichever ring is actually innermost in the current mode.
+            readonly property real innermostR: triple ? thirdR : (dual ? innerR : outerR)
+            // Clear diameter inside that ring. The centre label needs this as
+            // an explicit width — see the label's own comment.
+            readonly property real clearD: Math.max(0, 2 * (innermostR - strokeW / 2))
             // ShapePath has no strokeOpacity; bake the alpha into the color.
             readonly property color trackColor: Qt.rgba(Kirigami.Theme.textColor.r,
                                                         Kirigami.Theme.textColor.g,
@@ -371,10 +387,39 @@ PlasmoidItem {
                     startAngle: -90; sweepAngle: 359.999 * compact.weeklyFraction
                 }
             }
+            ShapePath {   // monthly track
+                strokeColor: ring.triple ? ring.trackColor : "transparent"
+                strokeWidth: ring.strokeW
+                fillColor: "transparent"
+                capStyle: ShapePath.FlatCap
+                PathAngleArc {
+                    centerX: ring.d / 2; centerY: ring.d / 2
+                    radiusX: ring.thirdR; radiusY: radiusX
+                    startAngle: 0; sweepAngle: 359.999
+                }
+            }
+            ShapePath {   // monthly fill, clockwise from the top
+                strokeColor: ring.triple ? compact.monthlyColor : "transparent"
+                strokeWidth: ring.strokeW
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                PathAngleArc {
+                    centerX: ring.d / 2; centerY: ring.d / 2
+                    radiusX: ring.thirdR; radiusY: radiusX
+                    startAngle: -90; sweepAngle: 359.999 * compact.monthlyFraction
+                }
+            }
         }
 
         PlasmaComponents3.Label {
             anchors.centerIn: parent
+            // In triple mode the monthly ring owns the centre and the reading
+            // moves to the tooltip -- except when there is nothing to draw.
+            // With no data every ring is an empty track, so the centre is free
+            // and this is the only thing distinguishing "not configured" from
+            // "everything at zero". Dropping it unconditionally would lose
+            // that signal exactly when it matters most.
+            visible: !ring.triple || !root.rolling
             // fontSizeMode is a no-op without a width to fit against: an
             // unanchored Text's width is its own content width. Measured:
             // "100%" bold at 11px is 30px wide and does NOT shrink without
