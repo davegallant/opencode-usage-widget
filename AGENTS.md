@@ -53,6 +53,13 @@ lives in `~/.local/bin`.
   `~/.local/share/plasma/plasmoids/com.davegallant.opencodeusage`. Run
   `./install.sh` to (re)create the symlink, clear the QML cache, and restart
   plasmashell.
+- **Check where that path actually points before trusting it.** On this machine
+  home-manager also declares the plasmoid, so the path is periodically a symlink
+  into `/nix/store` rather than into this repo — and a store copy built from an
+  earlier commit is byte-identical to your checkout right up until you edit
+  something, at which point every check you run silently describes the old code.
+  `ls -l ~/.local/share/plasma/plasmoids/` costs nothing. `install.sh` repoints
+  it at the repo, which a later home-manager activation may undo.
 - **Always clear `~/.cache/plasmashell/qmlcache/` after editing `main.qml`** —
   Plasma runs the *compiled* cache, not your source, so a plain restart shows
   no change. This is the biggest footgun here. `install.sh` handles it.
@@ -79,9 +86,24 @@ category that means the file is actually broken:
 ... qmllint ... 2>&1 | grep '\[syntax\]'
 ```
 
-`plasmoidviewer` renders offscreen without disturbing the live panel;
-`-f vertical` shows the in-panel form. Neither tool exercises the config
-dialog — that needs a real install.
+`plasmoidviewer` needs `-f horizontal` or `-f vertical` to show the in-panel
+(compact) form — bare `-a` opens the popup instead. It resolves the applet by
+plugin name, so it renders whatever the plasmoid path points at, with the
+staleness trap above. Neither tool exercises the config dialog — that needs a
+real install.
+
+**`plasmoidviewer` does not render offscreen**, despite what this file used to
+claim. With a live session it opens a real window on the desktop. There is no
+headless route either: `-platform offscreen` never drives a render pass, so
+`grabToImage`'s callback never fires and the process hangs until killed, and
+`XMLHttpRequest` GET on a `file://` URL returns empty (reads are gated, not just
+the PUT writes noted above).
+
+So an agent working here **cannot see this widget**, and should not claim to.
+What does work is `qmllint` for syntax, and an offscreen `qml` scene carrying
+its result out through `Qt.exit(n)` — `console.log` is swallowed by this
+environment's Qt logging rules, so the exit code is the only channel. That is
+enough to check geometry and text metrics; appearance needs a human.
 
 Two traps when writing throwaway QML to test something:
 
