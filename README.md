@@ -3,8 +3,10 @@
 A panel widget for KDE Plasma 6 showing your opencode Go subscription usage —
 rolling, weekly, and monthly — with reset countdowns.
 
-- **In the panel:** a circular progress ring for the rolling window,
-  colour-coded green → orange → red at 50% / 80%.
+- **In the panel:** two concentric progress rings — rolling outside, weekly
+  inside — both colour-coded green → orange → red at 50% / 80%, with the
+  rolling percentage in the centre. On thin panels it falls back to a single
+  rolling ring.
 - **Click → popup:** all three windows with bars and reset times.
 - **Force a refresh:** the popup's **Refresh now** button, middle-click on the
   panel entry, or right-click → *Refresh now*.

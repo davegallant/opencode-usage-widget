@@ -169,13 +169,17 @@ hand-editing still works and there is one code path.
   rolling percentage centred. The centre number is *always* rolling, which is
   what disambiguates the rings: red in the stack while the number reads green
   can only be weekly.
-- The second ring is dropped below `d >= 32` (`d` being the ring diameter,
+- The second ring is dropped when `d < 32` (`d` being the ring diameter,
   roughly panel thickness minus `smallSpacing`). Below that, strokes hit the
   2px floor and the centre no longer holds a two-digit percentage above
   `minimumPixelSize` — the ring would be present but unreadable, which is worse
   than absent. Dual mode also thins the stroke (`0.085d` vs `0.12d`) and the
-  label (`0.26d` vs `0.32d`); the label factor is load-bearing, since `0.32d`
-  would make `fontSizeMode` the normal path rather than the fallback.
+  label (`0.26d` vs `0.32d`). The smaller dual-mode factor keeps the common
+  two-digit case at full size under typical fonts, but this is font-dependent
+  — a wider default like DejaVu Sans can engage the shrink path sooner than
+  Noto Sans or Liberation Sans. What actually makes this safe either way is
+  `width: ring.clearD`, which lets `fontSizeMode` shrink the label rather than
+  overflow it.
 - Monthly stays popup-only, and there is no "worst of N" ring. Three concentric
   rings don't stay legible at panel size, and a worst-of-N ring would mean
   something different moment to moment. Two rings, each bound to one fixed
