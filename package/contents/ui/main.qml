@@ -297,31 +297,34 @@ PlasmoidItem {
             anchors.centerIn: parent
             readonly property real d: Math.max(compact.side - Kirigami.Units.smallSpacing, 8)
             readonly property real strokeW: Math.max(2, d * 0.12)
+            readonly property real outerR: (d - strokeW) / 2
+            // ShapePath has no strokeOpacity; bake the alpha into the color.
+            readonly property color trackColor: Qt.rgba(Kirigami.Theme.textColor.r,
+                                                        Kirigami.Theme.textColor.g,
+                                                        Kirigami.Theme.textColor.b, 0.18)
             width: d; height: d
             layer.enabled: true
             layer.samples: 4
 
-            ShapePath {   // background track
-                // ShapePath has no strokeOpacity; bake the alpha into the color.
-                strokeColor: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g,
-                                      Kirigami.Theme.textColor.b, 0.18)
+            ShapePath {   // rolling track
+                strokeColor: ring.trackColor
                 strokeWidth: ring.strokeW
                 fillColor: "transparent"
                 capStyle: ShapePath.FlatCap
                 PathAngleArc {
                     centerX: ring.d / 2; centerY: ring.d / 2
-                    radiusX: (ring.d - ring.strokeW) / 2; radiusY: radiusX
+                    radiusX: ring.outerR; radiusY: radiusX
                     startAngle: 0; sweepAngle: 359.999
                 }
             }
-            ShapePath {   // filled portion, clockwise from the top
+            ShapePath {   // rolling fill, clockwise from the top
                 strokeColor: compact.ringColor
                 strokeWidth: ring.strokeW
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
                 PathAngleArc {
                     centerX: ring.d / 2; centerY: ring.d / 2
-                    radiusX: (ring.d - ring.strokeW) / 2; radiusY: radiusX
+                    radiusX: ring.outerR; radiusY: radiusX
                     startAngle: -90; sweepAngle: 359.999 * compact.fraction
                 }
             }
