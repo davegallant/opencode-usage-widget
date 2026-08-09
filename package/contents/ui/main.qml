@@ -31,7 +31,7 @@ PlasmoidItem {
     property int saveSeq: 0            // ditto, for credential writes
 
     Plasmoid.icon: "utilities-system-monitor"
-    toolTipMainText: "opencode Usage"
+    toolTipMainText: "OpenCode Usage"
     toolTipSubText: rolling
         ? ("Rolling " + Math.round(rolling.util) + "% · resets in " + remainStr(rolling.resets_ms)
            + (weekly ? ("\nWeekly " + Math.round(weekly.util) + "%") : "")
@@ -462,7 +462,7 @@ PlasmoidItem {
                 Layout.fillWidth: true
                 spacing: Kirigami.Units.smallSpacing
 
-                Kirigami.Heading { level: 3; text: "opencode Usage" }
+                Kirigami.Heading { level: 3; text: "OpenCode Usage" }
                 Item { Layout.fillWidth: true }
 
                 PlasmaComponents3.Label {

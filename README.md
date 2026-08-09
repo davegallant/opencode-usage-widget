@@ -1,12 +1,12 @@
-# opencode Usage — KDE Plasma 6 widget
+# OpenCode Usage — KDE Plasma 6 widget
 
 A panel widget for KDE Plasma 6 showing your opencode Go subscription usage —
 rolling, weekly, and monthly — with reset countdowns.
 
-- **In the panel:** two concentric progress rings — rolling outside, weekly
-  inside — both colour-coded green → orange → red at 50% / 80%, with the
-  rolling percentage in the centre. On thin panels it falls back to a single
-  rolling ring.
+- **In the panel:** three concentric progress rings — rolling outside, then
+  weekly, then monthly — each colour-coded green → orange → red at 50% / 80%.
+  Hover for the exact figures. On thin panels it falls back to a single rolling
+  ring with the percentage in the centre.
 - **Click → popup:** all three windows with bars and reset times.
 - **Force a refresh:** the popup's **Refresh now** button, middle-click on the
   panel entry, or right-click → *Refresh now*.
@@ -32,7 +32,7 @@ build.sh                          # -> dist/opencode-usage.plasmoid
 
 This symlinks `package/` into `~/.local/share/plasma/plasmoids/`, so editing
 files here edits the live widget. Add it via right-click → *Add Widgets* →
-"opencode Usage".
+"OpenCode Usage".
 
 To build a distributable: `./build.sh`, then
 `kpackagetool6 -t Plasma/Applet -i dist/opencode-usage.plasmoid`.

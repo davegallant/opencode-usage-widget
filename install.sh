@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install / refresh the opencode Usage plasmoid from this project.
+# Install / refresh the OpenCode Usage plasmoid from this project.
 # Symlinks the package into Plasma's plasmoid dir, clears the compiled QML
 # cache, and restarts plasmashell so edits to package/ actually show up.
 set -euo pipefail
@@ -26,4 +26,4 @@ else
 fi
 
 echo "Installed via symlink. Live install -> $HERE/package"
-echo "If it's not on a panel yet: right-click panel -> Add Widgets -> 'opencode Usage'."
+echo "If it's not on a panel yet: right-click panel -> Add Widgets -> 'OpenCode Usage'."

@@ -1,7 +1,7 @@
 {
     "KPlugin": {
         "Id": "com.davegallant.opencodeusage",
-        "Name": "opencode Usage",
+        "Name": "OpenCode Usage",
         "Description": "opencode Go rolling, weekly, and monthly subscription usage",
         "Authors": [
             { "Name": "Dave Gallant", "Email": "davegallant@proton.me" }
