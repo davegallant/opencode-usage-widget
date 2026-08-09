@@ -1,0 +1,1 @@
+$R=[];$R[9]={status:"ok",resetInSec:3600,usagePercent:42};$R[10]={status:"ok",resetInSec:432000,usagePercent:11};$R[11]={status:"warning",resetInSec:1728000,usagePercent:63};$R[0]={data:{rollingUsage:$R[9],weeklyUsage:$R[10],monthlyUsage:$R[11]}};

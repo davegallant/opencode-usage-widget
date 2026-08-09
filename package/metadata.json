@@ -1,0 +1,16 @@
+{
+    "KPlugin": {
+        "Id": "com.davegallant.opencodeusage",
+        "Name": "opencode Usage",
+        "Description": "opencode Go rolling, weekly, and monthly subscription usage",
+        "Authors": [
+            { "Name": "Dave Gallant", "Email": "davegallant@proton.me" }
+        ],
+        "Category": "System Information",
+        "Icon": "utilities-system-monitor",
+        "License": "MIT",
+        "Version": "1.1"
+    },
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API-Minimum-Version": "6.0"
+}
