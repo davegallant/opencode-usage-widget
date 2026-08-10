@@ -276,7 +276,7 @@ PlasmoidItem {
         // Wider than tall, where the rings were square. Only one axis follows
         // the other, and only the axis Plasma doesn't already fix for us —
         // deriving both is a binding loop.
-        readonly property real aspect: 2.2
+        readonly property real aspect: 1.0
         readonly property bool vertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
         Layout.minimumWidth: vertical ? Kirigami.Units.iconSizes.smallMedium
                                       : Math.round(height * aspect)
@@ -300,7 +300,10 @@ PlasmoidItem {
         readonly property real usableW: Math.max(width - Kirigami.Units.smallSpacing, 8)
         readonly property real usableH: Math.max(height - Kirigami.Units.smallSpacing, 6)
         readonly property real barSpacing: Math.max(1, Math.round(usableH * 0.10))
-        readonly property real barHeight: Math.max(2, (usableH - 2 * barSpacing) / 3)
+        readonly property int maxBarHeight: Math.max(2, Kirigami.Units.smallSpacing)
+        readonly property real barHeight: Math.min(
+            Math.max(2, (usableH - 2 * barSpacing) / 3),
+            maxBarHeight)
 
         Column {
             anchors.centerIn: parent
