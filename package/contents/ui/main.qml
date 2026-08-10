@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Shapes
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.components as PlasmaComponents3
@@ -206,7 +205,8 @@ PlasmoidItem {
     // A usage bar tinted by severity. PlasmaComponents3.ProgressBar draws its
     // fill from a themed SVG and exposes no colour hook, so track and fill are
     // both plain rectangles here — replacing only one would leave the two
-    // mismatched in height. The track alpha matches the compact ring's.
+    // mismatched in height. Shared by the panel and the popup so the two can't
+    // drift apart; the panel sizes it explicitly, the popup takes implicitHeight.
     component UsageBar: Item {
         id: bar
         property real value: 0
@@ -265,20 +265,30 @@ PlasmoidItem {
         }
     }
 
-    // ---------- compact (in-panel): concentric rings, outside-in ----------
-    // rolling / weekly / monthly, ordered by how soon each one bites. How many
-    // are drawn depends on the panel's thickness -- see `dual` and `triple`.
+    // ---------- compact (in-panel): three stacked bars, top-down ----------
+    // rolling / weekly / monthly, ordered by how soon each one bites. Equal
+    // lengths, so the three windows are directly comparable -- which concentric
+    // rings never were, an outer arc being longer than an inner one for the
+    // same percentage. Bars also need no legibility gate: three thin rectangles
+    // fit any panel thickness Plasma will hand this applet.
     compactRepresentation: MouseArea {
         id: compact
-        // Only one axis follows the other, and only the axis Plasma doesn't
-        // already fix for us — binding both ways off Math.min(width, height)
-        // is a binding loop.
+        // Wider than tall, where the rings were square. Only one axis follows
+        // the other, and only the axis Plasma doesn't already fix for us —
+        // deriving both is a binding loop.
+        readonly property real aspect: 2.2
         readonly property bool vertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
-        Layout.minimumWidth: vertical ? Kirigami.Units.iconSizes.smallMedium : height
-        Layout.minimumHeight: vertical ? width : Kirigami.Units.iconSizes.smallMedium
+        Layout.minimumWidth: vertical ? Kirigami.Units.iconSizes.smallMedium
+                                      : Math.round(height * aspect)
+        // The floor is load-bearing on a vertical panel: a thin one gives an
+        // applet width around 22, and width/aspect would be 10 — less than the
+        // 12 three drawable bars and their gaps need, so the stack would spill
+        // out of its own box.
+        Layout.minimumHeight: vertical ? Math.max(Kirigami.Units.iconSizes.small,
+                                                  Math.round(width / aspect))
+                                       : Kirigami.Units.iconSizes.smallMedium
         Layout.preferredWidth: Layout.minimumWidth
         Layout.preferredHeight: Layout.minimumHeight
-        readonly property real side: vertical ? width : height
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton
         onClicked: (mouse) => {
@@ -286,161 +296,60 @@ PlasmoidItem {
             else root.expanded = !root.expanded
         }
 
-        readonly property real util: root.rolling ? root.rolling.util : 0
-        // Not readonly: Behavior needs write access to animate through value
-        // changes; Qt refuses to attach one to a readonly property.
-        property real fraction: root.rolling ? Math.max(0, Math.min(100, util)) / 100 : 0
-        readonly property color ringColor: root.rolling ? root.utilColor(root.rolling.util)
-                                                        : Kirigami.Theme.disabledTextColor
-        // Weekly mirrors rolling exactly: same clamp, same easing, same full
-        // strength colour. A blown weekly quota is the worse of the two
-        // problems and must not be drawn more quietly than a rolling one.
-        property real weeklyFraction: root.weekly ? Math.max(0, Math.min(100, root.weekly.util)) / 100 : 0
-        readonly property color weeklyColor: root.weekly ? root.utilColor(root.weekly.util)
-                                                         : Kirigami.Theme.disabledTextColor
-        // Monthly, innermost. Same treatment again -- three windows drawn on
-        // equal terms, ordered outside-in by how soon they bite.
-        property real monthlyFraction: root.monthly ? Math.max(0, Math.min(100, root.monthly.util)) / 100 : 0
-        readonly property color monthlyColor: root.monthly ? root.utilColor(root.monthly.util)
-                                                           : Kirigami.Theme.disabledTextColor
-        Behavior on fraction { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
-        Behavior on weeklyFraction { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
-        Behavior on monthlyFraction { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+        // Inset by smallSpacing on both axes, as the ring's diameter was.
+        readonly property real usableW: Math.max(width - Kirigami.Units.smallSpacing, 8)
+        readonly property real usableH: Math.max(height - Kirigami.Units.smallSpacing, 6)
+        readonly property real barSpacing: Math.max(1, Math.round(usableH * 0.10))
+        readonly property real barHeight: Math.max(2, (usableH - 2 * barSpacing) / 3)
 
-        Shape {
-            id: ring
+        Column {
             anchors.centerIn: parent
-            readonly property real d: Math.max(compact.side - Kirigami.Units.smallSpacing, 8)
-            // Below this the inner ring would be present but unreadable —
-            // strokes hit the 2px floor and the centre stops holding a
-            // two-digit percentage above minimumPixelSize. Absent beats
-            // illegible, so thin panels get the original single ring.
-            readonly property bool dual: d >= 32
-            // Monthly appears once its ring still encloses a real hole rather
-            // than collapsing to a filled dot. Stated as the legibility rule
-            // itself, not a diameter: `d` is NOT panel thickness -- Plasma
-            // hands a panel applet notably less (measured: a 46px panel gives
-            // 38px, so d = 34 after smallSpacing). A hardcoded diameter here
-            // was silently wrong for exactly that reason.
-            //
-            // With the current factors this coincides with `dual`: the
-            // expression reduces to 0.165d, which clears 3 for any d >= 19. It
-            // is kept separate so that changing strokeW or gap can't quietly
-            // produce a third ring with no hole in it.
-            readonly property bool triple: dual && (thirdR - strokeW / 2) >= 3
-            readonly property real strokeW: dual ? Math.max(2, d * 0.085)
-                                                 : Math.max(2, d * 0.12)
-            readonly property real gap: Math.max(1, d * 0.04)
-            readonly property real outerR: (d - strokeW) / 2
-            // Clamped: at the d = 8 floor the subtraction goes negative.
-            readonly property real innerR: Math.max(0, outerR - strokeW - gap)
-            readonly property real thirdR: Math.max(0, innerR - strokeW - gap)
-            // Whichever ring is actually innermost in the current mode.
-            readonly property real innermostR: triple ? thirdR : (dual ? innerR : outerR)
-            // Clear diameter inside that ring. The centre label needs this as
-            // an explicit width — see the label's own comment.
-            readonly property real clearD: Math.max(0, 2 * (innermostR - strokeW / 2))
-            // ShapePath has no strokeOpacity; bake the alpha into the color.
-            readonly property color trackColor: Qt.rgba(Kirigami.Theme.textColor.r,
-                                                        Kirigami.Theme.textColor.g,
-                                                        Kirigami.Theme.textColor.b, 0.18)
-            width: d; height: d
-            layer.enabled: true
-            layer.samples: 4
+            spacing: compact.barSpacing
+            // Empty tracks would be indistinguishable from every window at 0%;
+            // the glyph below takes over instead.
+            visible: root.rolling !== null
 
-            ShapePath {   // rolling track
-                strokeColor: ring.trackColor
-                strokeWidth: ring.strokeW
-                fillColor: "transparent"
-                capStyle: ShapePath.FlatCap
-                PathAngleArc {
-                    centerX: ring.d / 2; centerY: ring.d / 2
-                    radiusX: ring.outerR; radiusY: radiusX
-                    startAngle: 0; sweepAngle: 359.999
-                }
+            // Each window gets the same colour treatment as the others: a
+            // blown weekly or monthly quota is the worse problem and must not
+            // be drawn more quietly than a rolling one. Written out rather
+            // than repeated over an array model — a Repeater would rebuild its
+            // delegates every time the array is reassigned, and each rebuilt
+            // bar starts at its final width, so the fill animation would never
+            // play.
+            UsageBar {
+                width: compact.usableW; height: compact.barHeight
+                value: root.rolling ? root.rolling.util : 0
+                fillColor: root.rolling ? root.utilColor(root.rolling.util)
+                                        : Kirigami.Theme.disabledTextColor
             }
-            ShapePath {   // rolling fill, clockwise from the top
-                strokeColor: compact.ringColor
-                strokeWidth: ring.strokeW
-                fillColor: "transparent"
-                capStyle: ShapePath.RoundCap
-                PathAngleArc {
-                    centerX: ring.d / 2; centerY: ring.d / 2
-                    radiusX: ring.outerR; radiusY: radiusX
-                    startAngle: -90; sweepAngle: 359.999 * compact.fraction
-                }
+            UsageBar {
+                width: compact.usableW; height: compact.barHeight
+                value: root.weekly ? root.weekly.util : 0
+                fillColor: root.weekly ? root.utilColor(root.weekly.util)
+                                       : Kirigami.Theme.disabledTextColor
             }
-            ShapePath {   // weekly track
-                // ShapePath is not an Item and has no `visible`; a transparent
-                // stroke is how these two paths switch off below the threshold.
-                strokeColor: ring.dual ? ring.trackColor : "transparent"
-                strokeWidth: ring.strokeW
-                fillColor: "transparent"
-                capStyle: ShapePath.FlatCap
-                PathAngleArc {
-                    centerX: ring.d / 2; centerY: ring.d / 2
-                    radiusX: ring.innerR; radiusY: radiusX
-                    startAngle: 0; sweepAngle: 359.999
-                }
-            }
-            ShapePath {   // weekly fill, clockwise from the top
-                strokeColor: ring.dual ? compact.weeklyColor : "transparent"
-                strokeWidth: ring.strokeW
-                fillColor: "transparent"
-                capStyle: ShapePath.RoundCap
-                PathAngleArc {
-                    centerX: ring.d / 2; centerY: ring.d / 2
-                    radiusX: ring.innerR; radiusY: radiusX
-                    startAngle: -90; sweepAngle: 359.999 * compact.weeklyFraction
-                }
-            }
-            ShapePath {   // monthly track
-                strokeColor: ring.triple ? ring.trackColor : "transparent"
-                strokeWidth: ring.strokeW
-                fillColor: "transparent"
-                capStyle: ShapePath.FlatCap
-                PathAngleArc {
-                    centerX: ring.d / 2; centerY: ring.d / 2
-                    radiusX: ring.thirdR; radiusY: radiusX
-                    startAngle: 0; sweepAngle: 359.999
-                }
-            }
-            ShapePath {   // monthly fill, clockwise from the top
-                strokeColor: ring.triple ? compact.monthlyColor : "transparent"
-                strokeWidth: ring.strokeW
-                fillColor: "transparent"
-                capStyle: ShapePath.RoundCap
-                PathAngleArc {
-                    centerX: ring.d / 2; centerY: ring.d / 2
-                    radiusX: ring.thirdR; radiusY: radiusX
-                    startAngle: -90; sweepAngle: 359.999 * compact.monthlyFraction
-                }
+            UsageBar {
+                width: compact.usableW; height: compact.barHeight
+                value: root.monthly ? root.monthly.util : 0
+                fillColor: root.monthly ? root.utilColor(root.monthly.util)
+                                        : Kirigami.Theme.disabledTextColor
             }
         }
 
         PlasmaComponents3.Label {
             anchors.centerIn: parent
-            // In triple mode the monthly ring owns the centre and the reading
-            // moves to the tooltip -- except when there is nothing to draw.
-            // With no data every ring is an empty track, so the centre is free
-            // and this is the only thing distinguishing "not configured" from
-            // "everything at zero". Dropping it unconditionally would lose
-            // that signal exactly when it matters most.
-            visible: !ring.triple || !root.rolling
+            // The one reading the panel keeps when there are no bars to draw.
+            // Without it "not configured" and "everything at zero" look alike,
+            // which is exactly when the difference matters.
+            visible: root.rolling === null
             // fontSizeMode is a no-op without a width to fit against: an
-            // unanchored Text's width is its own content width. Measured:
-            // "100%" bold at 11px is 30px wide and does NOT shrink without
-            // this line; with it, it scales down to fit. Without a width the
-            // percentage draws straight over the inner ring at 100%.
-            width: ring.clearD
-            text: root.rolling ? (Math.round(root.rolling.util) + "%")
-                               : (root.errorMsg !== "" ? "!" : "…")
-            color: compact.ringColor
+            // unanchored Text's width is its own content width.
+            width: compact.usableW
+            text: root.errorMsg !== "" ? "!" : "…"
+            color: root.errorMsg !== "" ? Kirigami.Theme.negativeTextColor
+                                        : Kirigami.Theme.disabledTextColor
             font.bold: true
-            // 0.26 in dual mode is load-bearing, not cosmetic: at 0.32 the
-            // label needs ~30px against a ~24px clear centre.
-            font.pixelSize: Math.round(ring.d * (ring.dual ? 0.26 : 0.32))
-            font.features: { "tnum": 1 }
+            font.pixelSize: Math.max(8, Math.round(compact.usableH * 0.7))
             fontSizeMode: Text.HorizontalFit
             minimumPixelSize: 6
             horizontalAlignment: Text.AlignHCenter

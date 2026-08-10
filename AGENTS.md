@@ -187,56 +187,42 @@ hand-editing still works and there is one code path.
 
 ## UI conventions
 
-- Panel: concentric rings, outside-in **rolling / weekly / monthly**, ordered
-  by how soon each window bites:
-
-  | `d` | rings | centre |
-  |---|---|---|
-  | `>= 32` | rolling, weekly, monthly | empty — reading moves to the tooltip |
-  | `< 32` | rolling | rolling percentage |
-
-- **`d` is not panel thickness.** Plasma hands a panel applet notably less than
-  the panel's height, and `smallSpacing` comes off that. Measured on this
-  machine: a **46px panel gives the applet 38px, so `d = 34`**
-  (`smallSpacing = 4`, `gridUnit = 18`). A threshold written as though `d`
-  tracked panel height was silently wrong — `d >= 40` never fired on a 46px
-  panel and would have needed roughly 54px+. Don't hardcode diameters here;
-  state the legibility rule and let it calibrate itself.
-
-- **The centre label still appears in triple mode when there is no data.** With
-  nothing to draw, every ring is an empty track, so the centre is free — and
-  the `!` / `…` is the only thing separating "not configured" from "everything
-  at zero". `visible: !ring.triple || !root.rolling`. Dropping it
-  unconditionally loses that signal exactly when it matters most.
-- In triple mode nothing on the panel says which arc is which; the tooltip
-  names all three. In dual mode the centre number is *always* rolling, which is
-  what disambiguates the rings: red in the stack while the number reads green
-  can only be weekly.
-- The second ring is dropped when `d < 32` (`d` being the ring diameter,
-  roughly panel thickness minus `smallSpacing`). Below that, strokes hit the
-  2px floor and the centre no longer holds a two-digit percentage above
-  `minimumPixelSize` — the ring would be present but unreadable, which is worse
-  than absent. Dual mode also thins the stroke (`0.085d` vs `0.12d`) and the
-  label (`0.26d` vs `0.32d`). The smaller dual-mode factor keeps the common
-  two-digit case at full size under typical fonts, but this is font-dependent
-  — a wider default like DejaVu Sans can engage the shrink path sooner than
-  Noto Sans or Liberation Sans. What actually makes this safe either way is
-  `width: ring.clearD`, which lets `fontSizeMode` shrink the label rather than
-  overflow it.
-- The third ring is gated on `dual && (thirdR - strokeW / 2) >= 3` — the
-  monthly ring must still enclose a real hole rather than collapse to a filled
-  dot. With the current factors that expression reduces to `0.165d`, clearing 3
-  for any `d >= 19`, so **wherever two rings fit, three fit** and the predicate
-  coincides with `dual`. It is kept as its own property so that retuning
-  `strokeW` or `gap` can't quietly produce a third ring with no hole in it.
-  Geometry is swept in 0.1px steps from d=8 to d=200 against four invariants:
-  `thirdR > 0`, the monthly stroke not swallowing the centre, `clearD > 0`, and
-  no stroke-edge overlap between adjacent rings.
-- **This reverses the original spec**, which ruled out three concentric rings
-  as illegible at panel size. That judgement assumed the centred percentage
-  stayed; dropping it frees exactly the space that made three rings cramped.
-- There is still no "worst of N" ring — it would mean something different
-  moment to moment. Every ring is bound to one fixed window.
+- Panel: three stacked bars, top-down **rolling / weekly / monthly**, ordered
+  by how soon each window bites. Equal lengths, so the three are directly
+  comparable — the concentric rings this replaced never were, an outer arc
+  being longer than an inner one at the same percentage. No legibility gate
+  either: three thin rectangles fit any thickness Plasma hands this applet,
+  where the rings needed `dual` / `triple` thresholds to stay readable.
+- **The applet is not as tall as the panel.** Plasma hands a panel applet
+  notably less than the panel's height, and `smallSpacing` comes off that to
+  give `usableH`. Measured on this machine: a **46px panel gives the applet
+  38px** (`smallSpacing = 4`, `gridUnit = 18`). Don't hardcode pixel sizes
+  here — state the rule and let it calibrate itself. This is what made the
+  rings' old `d >= 40` threshold silently never fire.
+- Geometry, from `usableH`: `barSpacing = max(1, round(usableH * 0.10))`,
+  `barHeight = max(2, (usableH - 2*barSpacing) / 3)`. Swept per pixel from the
+  enforced floor to 80 against four invariants: `barHeight >= 2`,
+  `barSpacing >= 1`, `usableW >= 8`, and the stack fitting inside `usableH`.
+- The compact form is **wider than tall** (`aspect = 2.2`), where the rings
+  were square. Only one axis is derived from the other — the one Plasma doesn't
+  already fix — or it is a binding loop. On a **vertical** panel that derived
+  axis is the height, and `iconSizes.small` floors it: a thin vertical panel
+  gives a width around 22, and `width / aspect = 10` is below the 12 that three
+  drawable bars and their gaps need, so the stack would spill out of its box.
+- **A `!` / `…` glyph replaces the bars when there is no data.** Empty tracks
+  are indistinguishable from every window at zero, so without the glyph "not
+  configured" and "all quiet" are the same picture. Tinted negative on error,
+  disabled-grey while loading.
+- Otherwise the panel carries **no numbers**, and nothing on it says which bar
+  is which — the tooltip names all three, the popup labels them.
+- The three bars are written out rather than driven by a `Repeater` over
+  `[rolling, weekly, monthly]`: reassigning that array rebuilds the delegates,
+  and a rebuilt bar starts at its final width, so the 400 ms fill animation
+  would never play.
+- Panel and popup share the one `UsageBar` component so the two can't drift
+  apart — the panel sizes it explicitly, the popup takes its `implicitHeight`.
+- There is no "worst of N" bar — it would mean something different moment to
+  moment. Every bar is bound to one fixed window.
 - Colouring is by **raw percentage**. The Claude widget's pace-based tinting
   needs a window length, and opencode's payload never states one; assuming
   5h/7d/30d would bake in a guess that's wrong for the whole early part of each
