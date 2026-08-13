@@ -39,7 +39,8 @@ lives in `~/.local/bin`.
   `6.0`.
 - Poll 300000 ms; clock tick 15000 ms; HTTP timeout 10 s; busy watchdog
   20000 ms.
-- Colour thresholds by raw percentage: `<= 50` positive, `<= 80` neutral, else
+- Colour thresholds by raw percentage: `<= 49` positive, `50-79` yellow (a
+  fixed amber — Breeze ships no warning colour), `80-89` neutral, `>= 90`
   negative.
 - Error kinds, exactly: `no-curl`, `bad-curl`, `http-<n>`, `net`, `parse`,
   `save`, `exec`.
@@ -200,15 +201,16 @@ hand-editing still works and there is one code path.
   here — state the rule and let it calibrate itself. This is what made the
   rings' old `d >= 40` threshold silently never fire.
 - Geometry, from `usableH`: `barSpacing = max(1, round(usableH * 0.10))`,
-  `barHeight = max(2, (usableH - 2*barSpacing) / 3)`. Swept per pixel from the
-  enforced floor to 80 against four invariants: `barHeight >= 2`,
-  `barSpacing >= 1`, `usableW >= 8`, and the stack fitting inside `usableH`.
-- The compact form is **wider than tall** (`aspect = 2.2`), where the rings
-  were square. Only one axis is derived from the other — the one Plasma doesn't
-  already fix — or it is a binding loop. On a **vertical** panel that derived
-  axis is the height, and `iconSizes.small` floors it: a thin vertical panel
-  gives a width around 22, and `width / aspect = 10` is below the 12 that three
-  drawable bars and their gaps need, so the stack would spill out of its box.
+  `barHeight = min(max(2, (usableH - 2*barSpacing) / 3), maxBarHeight)` with
+  `maxBarHeight = smallSpacing`. Swept per pixel from the enforced floor to 80
+  against four invariants: `barHeight >= 2`, `barSpacing >= 1`, `usableW >= 8`,
+  and the stack fitting inside `usableH`.
+- The compact form is roughly square (`aspect = 1.0`), and 25% smaller than
+  that on its derived axis (`shrink = 0.75`). Only one axis is derived from the
+  other — the one Plasma doesn't already fix — or it is a binding loop. On a
+  **vertical** panel the derived axis is the height and `iconSizes.small` floors
+  it; on a **horizontal** panel the height is the panel's and the width derives
+  from it.
 - **A `!` / `…` glyph replaces the bars when there is no data.** Empty tracks
   are indistinguishable from every window at zero, so without the glyph "not
   configured" and "all quiet" are the same picture. Tinted negative on error,

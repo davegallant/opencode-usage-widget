@@ -163,14 +163,23 @@ PlasmoidItem {
         if (mins < 60) return mins + "m ago"
         return Math.floor(mins / 60) + "h ago"
     }
-    // Severity tint by raw percentage. Pace-based colouring (as in the Claude
-    // widget) needs the window length, and opencode's payload gives only a
-    // relative reset — never the window size — so there is nothing honest to
-    // project against.
+    // Severity tint by raw percentage: green <= 49, yellow 50-79, orange
+    // 80-89, red >= 90. Pace-based colouring (as in the Claude widget) needs
+    // the window length, and opencode's payload gives only a relative reset —
+    // never the window size — so there is nothing honest to project against.
+    // Breeze ships no yellow role (no warning colour in this Plasma's
+    // KColorScheme), so the yellow tier is a fixed amber, bright on dark
+    // panels and darkened on light ones where a bright amber would wash out.
+    function warningYellow() {
+        var bg = Kirigami.Theme.backgroundColor
+        var lum = 0.2126 * bg.r + 0.7152 * bg.g + 0.0722 * bg.b
+        return lum > 0.4 ? "#C99E00" : "#FFD23F"
+    }
     function utilColor(u) {
         if (u === undefined || u === null) return Kirigami.Theme.textColor
-        if (u > 80) return Kirigami.Theme.negativeTextColor
-        if (u > 50) return Kirigami.Theme.neutralTextColor
+        if (u > 89) return Kirigami.Theme.negativeTextColor
+        if (u > 79) return Kirigami.Theme.neutralTextColor
+        if (u > 49) return root.warningYellow()
         return Kirigami.Theme.positiveTextColor
     }
     function statusText() {
@@ -273,19 +282,22 @@ PlasmoidItem {
     // fit any panel thickness Plasma will hand this applet.
     compactRepresentation: MouseArea {
         id: compact
-        // Wider than tall, where the rings were square. Only one axis follows
-        // the other, and only the axis Plasma doesn't already fix for us —
+        // Square-ish, where the rings were square. Only one axis follows the
+        // other, and only the axis Plasma doesn't already fix for us —
         // deriving both is a binding loop.
         readonly property real aspect: 1.0
         readonly property bool vertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
+        // 25% smaller than the square aspect alone would give. Only the
+        // derived axis can shrink — Plasma fixes the other one (panel height
+        // on a horizontal panel, width on a vertical one) — so the multiplier
+        // lands on the same axis as aspect.
+        readonly property real shrink: 0.75
         Layout.minimumWidth: vertical ? Kirigami.Units.iconSizes.smallMedium
-                                      : Math.round(height * aspect)
-        // The floor is load-bearing on a vertical panel: a thin one gives an
-        // applet width around 22, and width/aspect would be 10 — less than the
-        // 12 three drawable bars and their gaps need, so the stack would spill
-        // out of its own box.
+                                      : Math.round(height * aspect * shrink)
+        // The floor keeps a thin vertical panel's derived height from dropping
+        // below what three drawable bars and their gaps need to stay visible.
         Layout.minimumHeight: vertical ? Math.max(Kirigami.Units.iconSizes.small,
-                                                  Math.round(width / aspect))
+                                                  Math.round(width / aspect * shrink))
                                        : Kirigami.Units.iconSizes.smallMedium
         Layout.preferredWidth: Layout.minimumWidth
         Layout.preferredHeight: Layout.minimumHeight
